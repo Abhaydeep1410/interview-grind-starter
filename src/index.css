@@ -1,0 +1,15 @@
+
+body {
+  margin: 0;
+  background: #0a0a0f;
+  color: white;
+  font-family: Inter, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button {
+  cursor: pointer;
+}
