@@ -5,6 +5,7 @@ import {
 import { db } from "./firebase";
 import { DAYS_MAP, CATEGORY_POINTS, CATEGORY_COLORS, TOTAL_DAYS, getDayPoints, getMonth } from "./data";
 
+
 // ── helpers ──────────────────────────────────────────────────────────────
 function totalPossiblePoints() {
   return Object.values(DAYS_MAP).reduce((s, tasks) => s + getDayPoints(tasks), 0);
@@ -41,6 +42,171 @@ async function hashPassword(password) {
   const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// ── Add this after hashPassword function ──────────────────────────────────
+
+async function validateWithGemini(task, category, userAnswer, apiKey) {
+  const prompt = `You are a strict but fair technical interviewer validating a student's answer for an interview prep task.
+
+TASK: ${task}
+CATEGORY: ${category}
+
+STUDENT'S ANSWER:
+${userAnswer}
+
+Evaluate if the student has demonstrated sufficient understanding of this topic. 
+- For LC problems: they should explain the approach, time/space complexity, and key insight
+- For System Design: they should cover key components, trade-offs, and design decisions  
+- For Spring/Pattern: they should explain the concept clearly with a real example
+- For Behavioral: they should have a clear STAR story with specific details
+
+Respond in this exact JSON format (no markdown, no backticks):
+{"approved": true/false, "feedback": "brief feedback in 1-2 sentences", "score": 1-10}
+
+Be strict - a vague or incomplete answer should NOT be approved. Minimum score to approve is 6.`;
+
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.3, maxOutputTokens: 200 },
+      }),
+    }
+  );
+  const data = await res.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  try {
+    return JSON.parse(text.trim());
+  } catch {
+    // fallback if JSON parse fails
+    return { approved: false, feedback: 'Could not parse response. Try again.', score: 0 };
+  }
+}
+
+// ── Validation Modal ──────────────────────────────────────────────────────────
+function ValidationModal({ task, category, onClose, onApproved, apiKey }) {
+  const [answer, setAnswer] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+
+  async function handleSubmit() {
+    if (answer.trim().length < 30) return;
+    setLoading(true);
+    setResult(null);
+    try {
+      const res = await validateWithGemini(task, category, answer, apiKey);
+      setResult(res);
+      if (res.approved) {
+        setTimeout(() => { onApproved(); onClose(); }, 1500);
+      }
+    } catch (e) {
+      setResult({ approved: false, feedback: 'API error. Check your Gemini API key.', score: 0 });
+    }
+    setLoading(false);
+  }
+
+  const CAT_PLACEHOLDERS = {
+    LC: 'Explain your approach, the key insight, time & space complexity...',
+    Pattern: 'Explain the pattern, when to use it, and give a real example...',
+    Spring: 'Explain the concept, how it works internally, and when you\'d use it...',
+    System: 'Walk through key components, data flow, trade-offs, and DB choices...',
+    Behavioral: 'Give your full STAR story: Situation, Task, Action, Result with specifics...',
+  };
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 1000, padding: 20, backdropFilter: 'blur(4px)',
+    }}>
+      <div style={{
+        background: '#111118', border: '1px solid #2a2a3a',
+        borderRadius: 16, padding: 28, maxWidth: 580, width: '100%',
+        maxHeight: '90vh', overflowY: 'auto',
+      }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+          <div>
+            <span style={{
+              background: CATEGORY_COLORS[category] + '22',
+              color: CATEGORY_COLORS[category],
+              fontSize: 10, padding: '2px 8px', borderRadius: 10, fontWeight: 700,
+            }}>
+              {CAT_ICONS[category]} {category} · +{CATEGORY_POINTS[category]}pt
+            </span>
+          </div>
+          <button onClick={onClose} style={{
+            background: 'transparent', border: 'none', color: '#4b5563',
+            cursor: 'pointer', fontSize: 18, lineHeight: 1,
+          }}>✕</button>
+        </div>
+
+        <p style={{ color: '#e2e8f0', fontSize: 13, margin: '0 0 16px', lineHeight: 1.6 }}>
+          {task}
+        </p>
+
+        <p style={{ color: '#6b7280', fontSize: 11, margin: '0 0 8px' }}>
+          🤖 AI will verify your answer before marking this done
+        </p>
+
+        <textarea
+          value={answer}
+          onChange={e => setAnswer(e.target.value)}
+          placeholder={CAT_PLACEHOLDERS[category] || 'Explain your understanding...'}
+          rows={7}
+          style={{
+            width: '100%', padding: '12px 14px', borderRadius: 10,
+            border: '1px solid #2a2a3a', background: '#0a0a0f',
+            color: '#e2e8f0', fontSize: 13, fontFamily: "'Space Mono', monospace",
+            outline: 'none', resize: 'vertical', boxSizing: 'border-box',
+            lineHeight: 1.6,
+          }}
+        />
+        <p style={{ color: '#374151', fontSize: 11, margin: '4px 0 16px' }}>
+          {answer.trim().length}/30 min chars {answer.trim().length >= 30 ? '✓' : ''}
+        </p>
+
+        {/* Result */}
+        {result && (
+          <div style={{
+            padding: '12px 16px', borderRadius: 10, marginBottom: 16,
+            background: result.approved ? 'rgba(110,231,183,0.08)' : 'rgba(239,68,68,0.08)',
+            border: `1px solid ${result.approved ? 'rgba(110,231,183,0.3)' : 'rgba(239,68,68,0.3)'}`,
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+              <span style={{ color: result.approved ? '#6ee7b7' : '#f87171', fontWeight: 700, fontSize: 13 }}>
+                {result.approved ? '✅ Approved!' : '❌ Not quite'}
+              </span>
+              <span style={{ color: '#fcd34d', fontSize: 12 }}>Score: {result.score}/10</span>
+            </div>
+            <p style={{ color: '#9ca3af', fontSize: 12, margin: 0, lineHeight: 1.5 }}>
+              {result.feedback}
+            </p>
+          </div>
+        )}
+
+        <button
+          onClick={handleSubmit}
+          disabled={loading || answer.trim().length < 30 || result?.approved}
+          style={{
+            width: '100%', padding: '12px', borderRadius: 10, border: 'none',
+            background: loading || answer.trim().length < 30
+              ? '#1a1a2e'
+              : 'linear-gradient(135deg,#6ee7b7,#34d399)',
+            color: loading || answer.trim().length < 30 ? '#4b5563' : '#0a1a10',
+            fontWeight: 700, fontSize: 14, fontFamily: 'inherit',
+            cursor: loading || answer.trim().length < 30 ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {loading ? '🤖 Validating…' : result && !result.approved ? 'Try Again →' : 'Submit for Validation →'}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function JoinModal({ onJoin }) {
@@ -371,6 +537,45 @@ export default function App() {
   const [selectedMonth, setSelectedMonth] = useState(1);
   const [saving, setSaving] = useState(false);
 
+  // At the top of App(), add:
+const GEMINI_API_KEY = 'AIzaSyDsuSVgB-TysdFOhAIquxA_YDjAeFJQpRE'; // paste your key
+const [validating, setValidating] = useState(null); // { day, taskIdx }
+
+// Replace handleToggle with this:
+const handleToggle = useCallback((day, taskIdx) => {
+  if (!user) return;
+  const dayTasks = DAYS_MAP[day] || [];
+  const dayProg = progress[day] || [];
+  const alreadyDone = !!dayProg[taskIdx];
+
+  if (alreadyDone) {
+    // Allow unticking without validation
+    const newDayProg = [...(dayProg.length >= dayTasks.length ? dayProg : Array(dayTasks.length).fill(false))];
+    newDayProg[taskIdx] = false;
+    const newProg = { ...progress, [day]: newDayProg };
+    setProgress(newProg);
+    setDoc(doc(db, 'users', user.id), { progress: newProg }, { merge: true });
+  } else {
+    // Require validation before ticking
+    setValidating({ day, taskIdx });
+  }
+}, [user, progress]);
+
+// Add this function to handle approved validation:
+const handleValidationApproved = useCallback(async (day, taskIdx) => {
+  const dayTasks = DAYS_MAP[day] || [];
+  const dayProg = [...(progress[day] || Array(dayTasks.length).fill(false))];
+  while (dayProg.length < dayTasks.length) dayProg.push(false);
+  dayProg[taskIdx] = true;
+  const newProg = { ...progress, [day]: dayProg };
+  setProgress(newProg);
+  setSaving(true);
+  try { await setDoc(doc(db, 'users', user.id), { progress: newProg }, { merge: true }); }
+  catch (e) { console.error(e); }
+  setSaving(false);
+}, [user, progress]);
+
+
   // Restore session
   useEffect(() => {
     const stored = localStorage.getItem('tracker_user');
@@ -407,24 +612,6 @@ export default function App() {
     });
     return unsub;
   }, [user]);
-
-  const handleToggle = useCallback(async (day, taskIdx) => {
-    if (!user) return;
-    const dayTasks = DAYS_MAP[day] || [];
-    const dayProg = [...(progress[day] || Array(dayTasks.length).fill(false))];
-    // ensure array is long enough
-    while (dayProg.length < dayTasks.length) dayProg.push(false);
-    dayProg[taskIdx] = !dayProg[taskIdx];
-
-    const newProg = { ...progress, [day]: dayProg };
-    setProgress(newProg);
-
-    setSaving(true);
-    try {
-      await setDoc(doc(db, 'users', user.id), { progress: newProg }, { merge: true });
-    } catch (e) { console.error(e); }
-    setSaving(false);
-  }, [user, progress]);
 
   function handleLogout() {
     localStorage.removeItem('tracker_user');
@@ -546,6 +733,17 @@ export default function App() {
         )}
 
       </div>
+       
+      {/* Validation Modal */}
+      {validating && (
+        <ValidationModal
+          task={DAYS_MAP[validating.day]?.[validating.taskIdx]?.task}
+          category={DAYS_MAP[validating.day]?.[validating.taskIdx]?.category}
+          apiKey={GEMINI_API_KEY}
+          onClose={() => setValidating(null)}
+          onApproved={() => handleValidationApproved(validating.day, validating.taskIdx)}
+        />
+      )}
     </div>
   );
 }
