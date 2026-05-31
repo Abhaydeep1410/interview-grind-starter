@@ -25,7 +25,7 @@ import GitHubConnect   from './components/GitHubConnect';
 export default function App() {
   if (MAINTENANCE_MODE) return <MaintenancePage />;
 
-  const { user, join, logout }                     = useAuth();
+  const { user, rawPassword, needsReauth, join, reauth, logout } = useAuth();
   const { progress, saving, markDone, markUndone } = useProgress(user);
   const { notes, saveNote, getNote }               = useNotes(user);
   const allUsers                                   = useLeaderboard(user);
@@ -33,7 +33,7 @@ export default function App() {
     config, isConnected,
     save: ghSave, disconnect: ghDisconnect,
     commitNote,
-  } = useGitHub();
+  } = useGitHub(user, rawPassword);
 
   useConfetti(progress);
 
@@ -64,6 +64,7 @@ export default function App() {
     setTab('month');
   }, []);
 
+  if (needsReauth && user) return <JoinModal reauth userName={user.name} onReauth={reauth} onJoin={join} />;
   if (!user) return <JoinModal onJoin={join} />;
 
   const points = calcUserPoints(progress);
