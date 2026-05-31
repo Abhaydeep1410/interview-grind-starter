@@ -1,81 +1,66 @@
 import { useState, useCallback } from 'react';
 import { DAYS_MAP, getMonth } from './data';
-import { MAINTENANCE_MODE, GEMINI_API_KEY, MONTH_NAMES } from './constants';
+import { MAINTENANCE_MODE, MONTH_NAMES } from './constants';
 import { getTodayDay, calcUserPoints } from './utils/helpers';
-import { useAuth }                from './hooks/useAuth';
+import { useAuth }                     from './hooks/useAuth';
 import { useProgress, useLeaderboard } from './hooks/useProgress';
-import { useNotes }               from './hooks/useNotes';
-import { useConfetti }            from './hooks/useConfetti';
+import { useNotes }                    from './hooks/useNotes';
+import { useConfetti }                 from './hooks/useConfetti';
+import { useGitHub }                   from './hooks/useGitHub';
 
-import MaintenancePage  from './components/MaintenancePage';
-import JoinModal        from './components/JoinModal';
-import ValidationModal  from './components/ValidationModal';
-import NoteModal        from './components/NoteModal';
-import DayView          from './components/DayView';
-import StatsBar         from './components/StatsBar';
-import Leaderboard      from './components/Leaderboard';
-import StreakBadge      from './components/StreakBadge';
-import HeatmapCalendar  from './components/HeatmapCalendar';
-import XPBar            from './components/XPBar';
-import BadgeShelf       from './components/BadgeShelf';
+import MaintenancePage from './components/MaintenancePage';
+import JoinModal       from './components/JoinModal';
+import NoteModal       from './components/NoteModal';
+import DayView         from './components/DayView';
+import StatsBar        from './components/StatsBar';
+import Leaderboard     from './components/Leaderboard';
+import StreakBadge     from './components/StreakBadge';
+import HeatmapCalendar from './components/HeatmapCalendar';
+import XPBar           from './components/XPBar';
+import BadgeShelf      from './components/BadgeShelf';
+import GitHubConnect   from './components/GitHubConnect';
+
+// ── App ───────────────────────────────────────────────────────────────────
 
 export default function App() {
   if (MAINTENANCE_MODE) return <MaintenancePage />;
 
-  const { user, join, logout }                       = useAuth();
-  const { progress, saving, markDone, markUndone }   = useProgress(user);
-  const { notes, saveNote, getNote }                 = useNotes(user);
-  const allUsers                                     = useLeaderboard(user);
+  const { user, join, logout }                     = useAuth();
+  const { progress, saving, markDone, markUndone } = useProgress(user);
+  const { notes, saveNote, getNote }               = useNotes(user);
+  const allUsers                                   = useLeaderboard(user);
+  const {
+    config, isConnected,
+    save: ghSave, disconnect: ghDisconnect,
+    commitNote,
+  } = useGitHub();
 
   useConfetti(progress);
 
   const [tab, setTab]                     = useState('today');
   const [selectedMonth, setSelectedMonth] = useState(1);
-  const [validating, setValidating]       = useState(null);
-  const [notingTask, setNotingTask]       = useState(null);
-  const [pendingNote, setPendingNote]     = useState(null);
+  const [notingTask, setNotingTask]       = useState(null); // manual ✎ click
+  const [pendingNote, setPendingNote]     = useState(null); // auto-open after task done
 
   const todayDay  = getTodayDay();
   const monthDays = Array.from({ length: 84 }, (_, i) => i + 1).filter(
-    (d) => getMonth(d) === selectedMonth
+    d => getMonth(d) === selectedMonth
   );
 
-  // const handleToggle = useCallback(
-  //   (day, taskIdx) => {
-  //     if (!user) return;
-  //     const dayProg = progress[day] || [];
-  //     if (dayProg[taskIdx]) markUndone(day, taskIdx);
-  //     else setValidating({ day, taskIdx });
-  //   },
-  //   [user, progress, markUndone]
-  // );
-
-  const handleToggle = useCallback(
-  (day, taskIdx) => {
+  // Task click: toggle done/undone, open note prompt on completion
+  const handleToggle = useCallback((day, taskIdx) => {
     if (!user) return;
-
     const dayProg = progress[day] || [];
-
     if (dayProg[taskIdx]) {
       markUndone(day, taskIdx);
     } else {
       markDone(day, taskIdx);
-
-      // optional: open notes after completion
       setPendingNote({ day, taskIdx });
     }
-  },
-  [user, progress, markDone, markUndone]
-);
-  const handleValidationApproved = useCallback(() => {
-    if (!validating) return;
-    markDone(validating.day, validating.taskIdx);
-    setPendingNote({ day: validating.day, taskIdx: validating.taskIdx });
-  }, [validating, markDone]);
+  }, [user, progress, markDone, markUndone]);
 
   const handleHeatmapClick = useCallback((day) => {
-    const month = getMonth(day);
-    setSelectedMonth(month);
+    setSelectedMonth(getMonth(day));
     setTab('month');
   }, []);
 
@@ -83,7 +68,21 @@ export default function App() {
 
   const points = calcUserPoints(progress);
 
-  const tabStyle = (t) => ({
+  /** Shared props for both NoteModal instances */
+  function noteModalProps(target) {
+    return {
+      task:              DAYS_MAP[target.day]?.[target.taskIdx]?.task,
+      category:          DAYS_MAP[target.day]?.[target.taskIdx]?.category,
+      day:               target.day,
+      taskIdx:           target.taskIdx,
+      initialNote:       getNote(target.day, target.taskIdx),
+      onSave:            saveNote,
+      isGitHubConnected: isConnected,
+      githubCommit:      isConnected ? commitNote : undefined,
+    };
+  }
+
+  const tabStyle = t => ({
     padding: '8px 18px', borderRadius: 8, border: 'none', cursor: 'pointer',
     fontFamily: "'Space Mono', monospace", fontSize: 12, fontWeight: 600,
     background: tab === t ? 'rgba(110,231,183,0.12)' : 'transparent',
@@ -94,13 +93,16 @@ export default function App() {
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0f', fontFamily: "'Space Mono', monospace", color: '#e2e8f0' }}>
 
-      {/* Nav */}
+      {/* ── Nav ── */}
       <div style={{ borderBottom: '1px solid #1e1e2e', padding: '14px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'rgba(10,10,15,0.95)', backdropFilter: 'blur(10px)', zIndex: 100 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ color: '#6ee7b7', fontWeight: 700, fontSize: 14 }}>⚔️ 84-Day Grind</span>
           <span style={{ color: '#1e1e2e' }}>|</span>
           <span style={{ color: '#4b5563', fontSize: 11 }}>Day {todayDay}/84</span>
           <StreakBadge progress={progress} />
+          {isConnected && (
+            <span title={`GitHub: ${config.repo}`} style={{ fontSize: 14, cursor: 'default', opacity: 0.7 }}>🐙</span>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {saving && <span style={{ color: '#34d399', fontSize: 11 }}>saving…</span>}
@@ -109,14 +111,14 @@ export default function App() {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* ── Tabs ── */}
       <div style={{ padding: '16px 24px 0', display: 'flex', gap: 4, borderBottom: '1px solid #111118' }}>
         {[['today','📅 Today'],['month','📚 Browse'],['board','🏆 Rankings'],['profile','🏅 Profile']].map(([k,l]) => (
           <button key={k} style={tabStyle(k)} onClick={() => setTab(k)}>{l}</button>
         ))}
       </div>
 
-      {/* Content */}
+      {/* ── Content ── */}
       <div style={{ maxWidth: 780, margin: '0 auto', padding: '24px 20px' }}>
 
         {tab === 'today' && (
@@ -162,39 +164,31 @@ export default function App() {
         {tab === 'profile' && (
           <div>
             <XPBar points={points} />
+            <GitHubConnect
+              config={config}
+              isConnected={isConnected}
+              onSave={ghSave}
+              onDisconnect={ghDisconnect}
+            />
             <BadgeShelf progress={progress} />
             <HeatmapCalendar progress={progress} onDayClick={handleHeatmapClick} />
           </div>
         )}
       </div>
 
-      {validating && (
-        <ValidationModal
-          task={DAYS_MAP[validating.day]?.[validating.taskIdx]?.task}
-          category={DAYS_MAP[validating.day]?.[validating.taskIdx]?.category}
-          apiKey={GEMINI_API_KEY}
-          onClose={() => setValidating(null)}
-          onApproved={() => { handleValidationApproved(); setValidating(null); }}
-        />
-      )}
-
+      {/* Note modal — auto-opens after task completion */}
       {pendingNote && (
         <NoteModal
-          task={DAYS_MAP[pendingNote.day]?.[pendingNote.taskIdx]?.task}
-          category={DAYS_MAP[pendingNote.day]?.[pendingNote.taskIdx]?.category}
-          day={pendingNote.day} taskIdx={pendingNote.taskIdx}
-          initialNote={getNote(pendingNote.day, pendingNote.taskIdx)}
-          onSave={saveNote} onClose={() => setPendingNote(null)}
+          {...noteModalProps(pendingNote)}
+          onClose={() => setPendingNote(null)}
         />
       )}
 
+      {/* Note modal — manual edit via ✎ button */}
       {notingTask && (
         <NoteModal
-          task={DAYS_MAP[notingTask.day]?.[notingTask.taskIdx]?.task}
-          category={DAYS_MAP[notingTask.day]?.[notingTask.taskIdx]?.category}
-          day={notingTask.day} taskIdx={notingTask.taskIdx}
-          initialNote={getNote(notingTask.day, notingTask.taskIdx)}
-          onSave={saveNote} onClose={() => setNotingTask(null)}
+          {...noteModalProps(notingTask)}
+          onClose={() => setNotingTask(null)}
         />
       )}
     </div>
