@@ -4,6 +4,7 @@ import { MAINTENANCE_MODE, MONTH_NAMES } from './constants';
 import { getTodayDay, calcUserPoints } from './utils/helpers';
 import { useAuth }                     from './hooks/useAuth';
 import { useProgress, useLeaderboard } from './hooks/useProgress';
+import { useGroups }                   from './hooks/useGroups';
 import { useNotes }                    from './hooks/useNotes';
 import { useConfetti }                 from './hooks/useConfetti';
 import { useGitHub }                   from './hooks/useGitHub';
@@ -13,7 +14,7 @@ import JoinModal       from './components/JoinModal';
 import NoteModal       from './components/NoteModal';
 import DayView         from './components/DayView';
 import StatsBar        from './components/StatsBar';
-import Leaderboard     from './components/Leaderboard';
+import RankingsTab    from './components/RankingsTab';
 import StreakBadge     from './components/StreakBadge';
 import HeatmapCalendar from './components/HeatmapCalendar';
 import XPBar           from './components/XPBar';
@@ -29,6 +30,7 @@ export default function App() {
   const { progress, saving, markDone, markUndone } = useProgress(user);
   const { notes, saveNote, getNote }               = useNotes(user);
   const allUsers                                   = useLeaderboard(user);
+  const { groups, groupMembers, loadingGroups, create: createGroup, join: joinGroup, leave: leaveGroup } = useGroups(user);
   const {
     config, isConnected,
     save: ghSave, disconnect: ghDisconnect,
@@ -156,10 +158,17 @@ export default function App() {
         )}
 
         {tab === 'board' && (
-          <div>
-            <StatsBar progress={progress} />
-            <Leaderboard users={allUsers} currentUserId={user.id} />
-          </div>
+          <RankingsTab
+            currentUserId={user.id}
+            allUsers={allUsers}
+            groups={groups}
+            groupMembers={groupMembers}
+            loadingGroups={loadingGroups}
+            onCreate={createGroup}
+            onJoin={joinGroup}
+            onLeave={leaveGroup}
+            userProgress={progress}
+          />
         )}
 
         {tab === 'profile' && (

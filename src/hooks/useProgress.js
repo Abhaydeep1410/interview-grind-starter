@@ -3,6 +3,7 @@ import { doc, setDoc, onSnapshot, collection } from 'firebase/firestore';
 import { db } from '../firebase';
 import { DAYS_MAP } from '../data';
 import { calcUserPoints, calcUserDaysCompleted } from '../utils/helpers';
+import { calcStreaks } from '../utils/streakUtils';
 
 // ── useProgress: real-time progress sync for current user ─────────────────
 
@@ -74,6 +75,7 @@ export function useLeaderboard(user) {
             name: data.name,
             points: calcUserPoints(data.progress),
             daysCompleted: calcUserDaysCompleted(data.progress),
+            streak: calcStreaks(data.progress).current,
           };
         })
       );
