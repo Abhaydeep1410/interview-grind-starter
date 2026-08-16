@@ -1,19 +1,46 @@
 import { DAYS_MAP, CATEGORY_COLORS } from '../data';
 import { CAT_ICONS } from '../constants';
 import { calcUserPoints, calcUserDaysCompleted, totalPossiblePoints } from '../utils/helpers';
+import { getDayPoints, CATEGORY_POINTS } from '../data';
 
 // ── StatsBar ──────────────────────────────────────────────────────────────
 
-export default function StatsBar({ progress }) {
-  const pts = calcUserPoints(progress);
-  const days = calcUserDaysCompleted(progress);
-  const total = totalPossiblePoints();
+export default function StatsBar({ progress, daysMap = DAYS_MAP }) {
+  // Compute points using the active track's daysMap
+  function calcPoints(prog) {
+    let pts = 0;
+    for (const [dayStr, tasks] of Object.entries(prog || {})) {
+      const dayTasks = daysMap[parseInt(dayStr)] || [];
+      tasks.forEach((done, i) => {
+        if (done && dayTasks[i]) pts += CATEGORY_POINTS[dayTasks[i].category] || 1;
+      });
+    }
+    return pts;
+  }
+
+  function calcDaysCompleted(prog) {
+    let days = 0;
+    for (const [dayStr, tasks] of Object.entries(prog || {})) {
+      const dayTasks = daysMap[parseInt(dayStr)] || [];
+      const allDone = dayTasks.length > 0 && tasks.every((d, i) => (i < dayTasks.length ? d : true));
+      if (allDone) days++;
+    }
+    return days;
+  }
+
+  function calcTotal() {
+    return Object.values(daysMap).reduce((s, tasks) => s + getDayPoints(tasks), 0);
+  }
+
+  const pts = calcPoints(progress);
+  const days = calcDaysCompleted(progress);
+  const total = calcTotal();
   const pct = Math.round((pts / total) * 100);
 
   // Count completed tasks per category
-  const catEarned = { LC: 0, Pattern: 0, Spring: 0, System: 0, Behavioral: 0 };
+  const catEarned = {};
   for (const [dayStr, tasks] of Object.entries(progress || {})) {
-    const dayTasks = DAYS_MAP[parseInt(dayStr)] || [];
+    const dayTasks = daysMap[parseInt(dayStr)] || [];
     tasks.forEach((done, i) => {
       if (done && dayTasks[i]) {
         const cat = dayTasks[i].category;
@@ -34,7 +61,7 @@ export default function StatsBar({ progress }) {
         <div style={{ textAlign: 'right' }}>
           <p style={{ color: '#6b7280', fontSize: 12, margin: '0 0 4px' }}>Days Done</p>
           <h3 style={{ color: '#fcd34d', fontSize: 24, margin: 0, fontWeight: 700 }}>
-            {days} <span style={{ color: '#4b5563', fontSize: 14, fontWeight: 400 }}>/ 84</span>
+            {days} <span style={{ color: '#4b5563', fontSize: 14, fontWeight: 400 }}>/ {Object.keys(daysMap).length}</span>
           </h3>
         </div>
       </div>

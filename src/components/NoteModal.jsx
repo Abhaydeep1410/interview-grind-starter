@@ -35,6 +35,7 @@ export default function NoteModal({
     }
 
     // 2. Push to GitHub if connected
+    let githubFailed = false;
     if (isGitHubConnected && githubCommit && text.trim()) {
       setGhState('pushing');
       try {
@@ -44,13 +45,14 @@ export default function NoteModal({
       } catch (e) {
         setGhError(e.message || 'GitHub commit failed.');
         setGhState('error');
+        githubFailed = true;
       }
     }
 
-    // Auto-close after a beat if no GitHub or GitHub succeeded
-    setTimeout(() => {
-      if (ghState !== 'error') onClose();
-    }, 1600);
+    // Auto-close after a beat — use local var, not stale ghState from closure
+    if (!githubFailed) {
+      setTimeout(() => onClose(), 1600);
+    }
   }
 
   const isBusy = saveState === 'saving' || ghState === 'pushing';

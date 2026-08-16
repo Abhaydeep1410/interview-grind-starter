@@ -29,13 +29,23 @@ function fire(confetti) {
   confetti({ particleCount: 60, spread: 70, origin: { x: 0.8, y: 0.7 }, colors: ['#6ee7b7', '#34d399', '#a78bfa', '#60a5fa'] });
 }
 
-export function useConfetti(progress) {
+export function useConfetti(progress, totalDays = 84) {
   // Track which days were complete on last render
   const prevComplete = useRef(new Set());
 
+  // When totalDays changes (track switch), reset ref so we don't
+  // fire confetti for all already-completed days on the new track
+  const prevTotalDays = useRef(totalDays);
+  useEffect(() => {
+    if (prevTotalDays.current !== totalDays) {
+      prevTotalDays.current = totalDays;
+      prevComplete.current = new Set();
+    }
+  }, [totalDays]);
+
   useEffect(() => {
     const nowComplete = new Set();
-    for (let d = 1; d <= 84; d++) {
+    for (let d = 1; d <= totalDays; d++) {
       if (isDayComplete(d, progress)) nowComplete.add(d);
     }
 
@@ -47,5 +57,5 @@ export function useConfetti(progress) {
     }
 
     prevComplete.current = nowComplete;
-  }, [progress]);
+  }, [progress, totalDays]);
 }

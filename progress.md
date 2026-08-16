@@ -1,163 +1,273 @@
-# 84-Day Interview Grind — Project Reference
+# ⚔️ 84-Day Interview Grind Tracker
 
-## Overview
-A competitive interview prep tracker for a friend group.
-- 84 days (May–Jul 2026), 7 tasks/day, 5 categories
-- Real-time progress sync via Firebase Firestore
-- Compete globally and in private groups
-- Notes auto-committed to GitHub as markdown
+A collaborative, gamified interview prep tracker built with **React + Firebase**.  
+Designed for a group of friends prepping for product company interviews (Flipkart, Razorpay, Swiggy, CRED, PhonePe, etc.) together.
 
----
-
-## Tech Stack
-- **Frontend:** React (Vite), inline styles, Space Mono font
-- **Backend:** Firebase Firestore (real-time)
-- **AI Validation:** Gemini API (removed by user — direct task completion now)
-- **GitHub Integration:** GitHub Contents API via Personal Access Token
-- **Crypto:** Web Crypto API (AES-GCM, PBKDF2) — no libraries
+**Timeline:** Apr 19 – Jul 11, 2026 · 84 days · 7 tasks/day  
+**Stack:** React (Vite), Firebase Firestore, deployed on Firebase Hosting
 
 ---
 
-## Current File Structure
+## What It Does
+
+Every day has **7 tasks** across 5 categories:
+
+| Category   | Icon | Points | Description |
+|------------|------|--------|-------------|
+| LC         | ⚡   | 3 pts  | LeetCode problems (3/day) |
+| Pattern    | 🎨   | 2 pts  | Design patterns (GOF, Kafka, etc.) |
+| Spring     | 🌱   | 2 pts  | Spring/Java concepts |
+| System     | 🏗️   | 3 pts  | System design (HLD/LLD) |
+| Behavioral | 🎭   | 1 pt   | STAR stories and mock interviews |
+
+Users check off tasks, earn points, write notes, compete on a leaderboard, and form groups with friends.
+
+---
+
+## Project Structure
 
 ```
 src/
-├── App.jsx                        ← root orchestrator (no business logic)
-├── constants.js                   ← MAINTENANCE_MODE, CAT_ICONS, MONTH_NAMES, CAT_PLACEHOLDERS
-├── data.js                        ← DAYS_MAP, CATEGORY_POINTS, CATEGORY_COLORS, getDayPoints, getMonth
-├── firebase.js                    ← Firebase app + db export
+├── App.jsx                  # Root component, tab routing, modal orchestration
+├── main.jsx                 # Vite entry point
+├── index.css                # Google Fonts import (Space Mono)
+├── firebase.js              # Firebase init — user fills in their config here
+├── constants.js             # MAINTENANCE_MODE, GEMINI_API_KEY, CAT_ICONS, etc.
+├── data.js                  # All 84 days of task data + scoring helpers
 │
-├── utils/
-│   ├── helpers.js                 ← calcUserPoints, calcUserDaysCompleted, totalPossiblePoints, getTodayDay, hashPassword, nameToId
-│   ├── streakUtils.js             ← calcStreaks, isDayComplete, dateToDayNumber
-│   ├── xpUtils.js                 ← LEVELS (10), BADGES (11), getLevelInfo, getEarnedBadges
-│   ├── geminiService.js           ← validateWithGemini (NOT used — kept for reference)
-│   ├── githubService.js           ← testConnection, buildNoteMarkdown, commitNoteToGitHub
-│   ├── groupService.js            ← createGroup, joinGroup, leaveGroup, fetchGroup, fetchGroupMembers
-│   └── cryptoUtils.js             ← encrypt(plaintext, password), decrypt(base64, password) — AES-GCM
+├── components/
+│   ├── JoinModal.jsx        # Login/signup — name + password
+│   ├── DayView.jsx          # Renders one day's 7 tasks with checkboxes + note buttons
+│   ├── StatsBar.jsx         # Per-user stats: points, days done, category breakdown
+│   ├── XPBar.jsx            # XP level bar (gamified points display)
+│   ├── StreakBadge.jsx      # 🔥 Current streak badge in nav
+│   ├── HeatmapCalendar.jsx  # GitHub-style heatmap of all 84 days
+│   ├── BadgeShelf.jsx       # Achievement badges based on milestones
+│   ├── NoteModal.jsx        # Note editor (opens after task completion or via ✎)
+│   ├── RankingsTab.jsx      # Global leaderboard + group leaderboards
+│   ├── GitHubConnect.jsx    # Connect GitHub PAT to auto-commit notes
+│   ├── ValidationModal.jsx  # (Reserved for future use)
+│   └── MaintenancePage.jsx  # Shown when MAINTENANCE_MODE = true in constants.js
 │
 ├── hooks/
-│   ├── useAuth.js                 ← user, rawPassword, needsReauth, join(), reauth(), logout()
-│   ├── useProgress.js             ← useProgress (markDone/markUndone, saving), useLeaderboard (allUsers w/ streak)
-│   ├── useNotes.js                ← notes, saveNote(day,taskIdx,text), getNote(day,taskIdx)
-│   ├── useConfetti.js             ← fires canvas-confetti when a day goes fully complete
-│   ├── useGitHub.js               ← config, isConnected, loading, save(), disconnect(), commitNote()
-│   └── useGroups.js               ← groups, groupIds, groupMembers, loadingGroups, create(), join(), leave()
+│   ├── useAuth.js           # Login, signup, re-auth, logout — password-based
+│   ├── useProgress.js       # Real-time task progress sync + global leaderboard
+│   ├── useNotes.js          # Per-task notes stored in Firestore
+│   ├── useGroups.js         # Create/join/leave groups, fetch group leaderboards
+│   ├── useGitHub.js         # GitHub PAT management, note commits
+│   └── useConfetti.js       # Triggers confetti on day completion
 │
-└── components/
-    ├── MaintenancePage.jsx        ← shown when MAINTENANCE_MODE = true
-    ├── JoinModal.jsx              ← full join/login form + reauth mode (compact password prompt on refresh)
-    ├── DayView.jsx                ← renders one day's tasks; note button on completed tasks
-    ├── StatsBar.jsx               ← points, days done, progress bar, per-category chip counts
-    ├── XPBar.jsx                  ← level badge + title + XP progress bar to next level
-    ├── BadgeShelf.jsx             ← 11 badges, locked ones greyed out
-    ├── StreakBadge.jsx            ← 🔥 streak counter in nav bar
-    ├── HeatmapCalendar.jsx        ← 12×7 GitHub-style activity grid, click → jumps to Browse tab
-    ├── NoteModal.jsx              ← note editor; saves to Firestore + optionally commits to GitHub
-    ├── ValidationModal.jsx        ← Gemini validation UI (NOT used — kept for reference)
-    ├── GitHubConnect.jsx          ← PAT setup card with Classic/Fine-grained toggle + direct GitHub links
-    ├── Leaderboard.jsx            ← old flat leaderboard (superseded by RankingsTab, kept for reference)
-    └── RankingsTab.jsx            ← global + per-group leaderboard tabs, create/join/leave group UI
+└── utils/
+    ├── helpers.js           # calcUserPoints, calcUserDaysCompleted, getTodayDay, etc.
+    ├── streakUtils.js       # calcStreaks({ progress }) → { current, longest }
+    ├── groupService.js      # Firestore ops: createGroup, joinGroup, leaveGroup, fetchGroup
+    ├── githubService.js     # commitNoteToGitHub, testConnection
+    └── cryptoUtils.js       # encrypt/decrypt (AES via Web Crypto) for GitHub PAT
 ```
 
 ---
 
 ## Firestore Data Model
 
-```
-users/{userId}
-  name:        string
-  joinedAt:    timestamp
-  password:    string          ← SHA-256 hashed
-  progress:    {               ← { [dayNumber]: [bool, bool, ...] }
-    "1": [true, false, true, ...],
-    "12": [true, true, true, ...]
-  }
-  notes:       {               ← { "day_taskIdx": "note text" }
-    "12_3": "Two pointer, O(n)..."
-  }
-  groupIds:    string[]        ← array of group codes user belongs to
-  githubPat:   string          ← AES-GCM encrypted PAT (base64: salt+iv+cipher)
-  githubRepo:  string          ← e.g. "arjun/interview-notes"
-
-groups/{groupCode}             ← groupCode is the 5-char code e.g. "XK92A"
-  name:        string
-  code:        string
-  createdBy:   userId
-  createdAt:   timestamp
-  members:     string[]        ← array of userIds
+### `users/{userId}`
+```js
+{
+  name:       "D",
+  joinedAt:   1713484800000,     // epoch ms
+  password:   "sha256hash",      // hashed with SHA-256 (no salt — simple, not banking)
+  progress: {
+    "1": [true, true, false, true, false, true, true],  // array of booleans per day
+    "2": [true, false, ...]
+    // key = day number (1–84), value = boolean array matching DAYS_MAP[day]
+  },
+  notes: {
+    "1_0": "Two pointer insight: ...",   // key = `${day}_${taskIdx}`
+    "1_2": "URL Shortener: base62..."
+  },
+  groupIds: ["XK92A", "BT3ZQ"],         // codes of groups user is in
+  githubPat:  "encrypted_string",       // AES-encrypted with user's password
+  githubRepo: "username/repo-name"
+}
 ```
 
----
-
-## Key Design Decisions
-
-### Auth
-- Password hashed with SHA-256 before storing in Firestore
-- `rawPassword` held in React state (memory only, never persisted)
-- On page refresh: `needsReauth = true` → compact password prompt shown
-- After reauth: rawPassword available → useGitHub decrypts PAT from Firestore
-
-### GitHub PAT Storage (3-tier)
-1. **Memory** (React state) — fastest, cleared on refresh
-2. **localStorage** — survives refresh, same browser only
-3. **Firestore** (AES-GCM encrypted with user's password) — cross-device
-- On new device: reauth prompt → password entered → Firestore decrypted → localStorage warmed up
-- Token never stored in plaintext in Firestore
-
-### Groups
-- Group ID = 5-char code (no 0/O/1/I), e.g. "XK92A"
-- User can be in multiple groups simultaneously
-- `groups/{code}.members[]` and `users/{id}.groupIds[]` kept in sync
-- Member stats (points/days/streak) computed client-side from raw progress
-
-### Task Completion Flow (current — no AI validation)
-1. User clicks task checkbox
-2. `markDone()` called immediately → Firestore updated
-3. `NoteModal` opens automatically (post-completion prompt)
-4. User types note → saved to Firestore + optionally committed to GitHub
-5. Confetti fires if that was the last task in the day
-
-### Points & XP
-- Category points: LC=3, Pattern=2, Spring=2, System=3, Behavioral=1 (defined in data.js)
-- 10 XP levels: Recruit → Legendary (0 to 2000+ pts)
-- 11 badges: First Blood, Day One, Week Warrior, On Fire (3d streak), Unstoppable (7d),
-  Diamond Hands (14d), LeetCode Grinder (10 LC), Architect (5 System),
-  Storyteller (5 Behavioral), Halfway There (42 days), The Finisher (84 days)
-
-### Streak Logic
-- Streak = consecutive completed days ending today
-- Today being incomplete does NOT break the streak (checked at end of day)
-- Longest streak tracked separately
+### `groups/{groupCode}`
+```js
+{
+  code:      "XK92A",              // 5-char random uppercase code
+  name:      "FAANG Batch 2026",
+  createdBy: "user_id",
+  createdAt: 1713484800000,
+  members:   ["user_id_1", "user_id_2"]
+}
+```
 
 ---
 
-## App.jsx Tab Structure
-- 📅 Today  → XPBar + StatsBar + HeatmapCalendar + today's DayView + yesterday's DayView
-- 📚 Browse → month selector (M1/M2/M3) + all days for that month
-- 🏆 Rankings → RankingsTab (global leaderboard + group tabs)
-- 🏅 Profile → XPBar + GitHubConnect + BadgeShelf + HeatmapCalendar
+## Auth System
+
+- **No Firebase Auth** — custom password system using Firestore
+- Password is SHA-256 hashed before storage (no salt — intentional simplicity)
+- `localStorage` stores `{ id, name }` (no password)
+- On page refresh: user restored from localStorage, `needsReauth = true`
+- Re-auth prompt asks for password again → unlocks GitHub PAT decryption
+- `rawPassword` lives **in memory only**, never persisted
 
 ---
 
-## Known Issues / Future Work
-- [ ] Gemini 429 rate limit — shared API key hits quota fast; per-user key or backend proxy needed
-- [ ] Group member stats are fetched on-demand (not real-time); refresh needed to see others' updates
-- [ ] No admin/creator controls for groups (can't kick members, no group deletion)
-- [ ] Firestore security rules not yet tightened (users can write to each other's docs)
-- [ ] ValidationModal + geminiService kept but unused — can be removed if permanently dropped
-- [ ] No push notifications / daily reminders yet
+## Points & Scoring
+
+```js
+// src/data.js
+export const CATEGORY_POINTS = {
+  LC: 3, Pattern: 2, Spring: 2, System: 3, Behavioral: 1
+};
+```
+
+Total possible points across all 84 days is computed by `totalPossiblePoints()` in `utils/helpers.js`.
+
+User points = sum of `CATEGORY_POINTS[category]` for every checked task.
 
 ---
 
-## Features Added (chronological)
-1. Split monolithic App.jsx into 11 files (components/hooks/utils)
-2. 🔥 Streak counter (StreakBadge in nav)
-3. 🎉 Confetti on full day completion
-4. 📝 Notes per task (Firestore + NoteModal)
-5. 🗺️ Heatmap calendar (GitHub-style 84-day grid)
-6. 🏅 XP levels + badges (10 levels, 11 badges)
-7. 🐙 GitHub PAT integration (auto-commit notes as markdown)
-8. 🔐 Encrypted PAT storage (AES-GCM, cross-device via Firestore)
-9. 🔑 Reauth flow on page refresh (compact password prompt)
-10. 🏆 Groups system (create/join/leave, per-group leaderboard, global rankings)
+## Task Data
+
+All 84 days of tasks live in `src/data.js` as `DAYS` — a flat array of task objects:
+
+```js
+{
+  day: 1,
+  date: "Sun 19 Apr",
+  week: "W1: Arrays & Two Pointers",
+  category: "LC",          // LC | Pattern | Spring | System | Behavioral
+  task: "LC 26: Remove Duplicates from Sorted Array — two pointer in-place"
+}
+```
+
+`DAYS_MAP` groups them by `day` number:
+```js
+DAYS_MAP[1] // → array of 7 task objects for day 1
+```
+
+The 84 days cover 12 weeks across 3 months:
+- **Month 1 (Days 1–28):** Arrays, Sliding Window, Linked Lists, Binary Search
+- **Month 2 (Days 29–56):** Trees, Heaps, Graphs, DP Foundations
+- **Month 3 (Days 57–84):** DP Advanced, Hard Problems, Full Mocks, Final Prep
+
+---
+
+## Groups Feature
+
+- Any user can create a group → gets a random **5-char code** (e.g. `XK92A`)
+- Share the code → friends join with it
+- Each group has its own leaderboard tab in Rankings
+- Groups tab shows: members, their points, streaks, rank
+- Users can be in multiple groups simultaneously
+- Group code is copyable from the leaderboard UI
+
+---
+
+## GitHub Integration
+
+Users can connect a GitHub PAT to auto-commit their task notes as markdown files.
+
+- PAT is **AES-encrypted** with the user's raw password before storing in Firestore
+- Also cached in `localStorage` as plaintext for same-browser sessions
+- On new device: re-auth → rawPassword available → decrypt from Firestore
+- Commit flow: save note to Firestore → push markdown file to GitHub repo
+- Commit result shows a "View file ↗" link
+
+---
+
+## Gamification Features
+
+| Feature | Where |
+|---------|-------|
+| XP Bar | `XPBar.jsx` — shows level based on total points |
+| Streaks | `StreakBadge.jsx` + `streakUtils.js` — current/longest streak in nav |
+| Badges | `BadgeShelf.jsx` — earned by milestones (days completed, categories, etc.) |
+| Heatmap | `HeatmapCalendar.jsx` — GitHub-style 84-day completion grid |
+| Confetti | `useConfetti.js` — triggers on day fully completed |
+| 🔥 Hot badge | Shown next to users with streak ≥ 3 days in leaderboard |
+
+---
+
+## App Tabs
+
+1. **📅 Today** — Today's 7 tasks + yesterday's. XP bar, stats, heatmap at top.
+2. **📚 Browse** — All 84 days organized by month (M1/M2/M3). Scrollable.
+3. **🏆 Rankings** — Global leaderboard + group leaderboards. Create/join groups.
+4. **🏅 Profile** — XP bar, GitHub connect, badges, heatmap.
+
+---
+
+## Key Constants (`src/constants.js`)
+
+```js
+MAINTENANCE_MODE  // boolean — set true to show maintenance page to all users
+GEMINI_API_KEY    // Gemini API key (feature not yet fully wired up — future AI notes feature)
+CAT_ICONS         // { LC:'⚡', Pattern:'🎨', Spring:'🌱', System:'🏗️', Behavioral:'🎭' }
+MONTH_NAMES       // { 1: 'Month 1 · Foundations', ... }
+CAT_PLACEHOLDERS  // Textarea placeholder text per category in NoteModal
+```
+
+---
+
+## Visual Design
+
+- **Theme:** Dark (bg `#0a0a0f`), monospace font (`Space Mono`)
+- **Accent:** Emerald green (`#6ee7b7`, `#34d399`)
+- **Category colors:** Each category has a distinct color used for badges/tags
+- **No CSS framework** — all inline styles
+- **No component library** — pure React
+
+---
+
+## Firebase Setup (for new developers)
+
+1. Create a Firebase project at [console.firebase.google.com](https://console.firebase.google.com)
+2. Enable **Firestore** (Native mode)
+3. Add a **Web App** and copy the config into `src/firebase.js`
+4. Set Firestore rules (dev: allow all; prod: lock down per user)
+5. Install Firebase CLI: `npm install -g firebase-tools`
+6. `firebase login && firebase init hosting`
+7. `npm run build && firebase deploy`
+
+Firestore rules (recommended for prod):
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow read: if true;               // leaderboard needs cross-user reads
+      allow write: if true;              // auth is app-level, not Firebase Auth
+    }
+    match /groups/{groupId} {
+      allow read, write: if true;
+    }
+  }
+}
+```
+
+---
+
+## Local Development
+
+```bash
+npm install
+npm run dev       # starts Vite dev server
+npm run build     # production build → dist/
+firebase deploy   # deploy to Firebase Hosting
+```
+
+---
+
+## Known Decisions & Gotchas
+
+- **No Firebase Auth** by design — simpler UX for a friend group. Trade-off: anyone who knows your name can try to guess your password.
+- **SHA-256 without salt** — acceptable for this use case (not a financial/medical app).
+- **`rawPassword` in memory** — cleared on page refresh, which triggers `needsReauth`. This is intentional; it keeps the PAT decryption key out of storage.
+- **Progress stored as boolean arrays** — `progress["3"] = [true, false, true, ...]`. Index maps directly to `DAYS_MAP[3][i]`. If tasks are ever reordered in `data.js`, existing progress will be misaligned.
+- **Gemini API key in constants.js** — currently unused in the codebase; planned for an AI-powered note suggestion feature.
+- **`MAINTENANCE_MODE`** — flip to `true` in `constants.js` and redeploy to show a maintenance page to all users without changing auth/data logic.
+- **Groups are fetched eagerly** when `groupIds` changes — no pagination. Fine for small friend groups (< 50 members).
+- **`getTodayDay()`** is hardcoded to start from Apr 19 2026. After Day 84 (Jul 11), it clamps to 84.

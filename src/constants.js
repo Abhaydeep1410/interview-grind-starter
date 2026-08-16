@@ -25,3 +25,18 @@ export const CAT_PLACEHOLDERS = {
   System: 'Walk through key components, data flow, trade-offs, and DB choices...',
   Behavioral: 'Give your full STAR story: Situation, Task, Action, Result with specifics...',
 };
+
+export const TRACKS = [
+  {
+    id: "interview",
+    title: "Interview Prep",
+    totalDays: 84,
+    icon: "🎯"
+  },
+  {
+    id: "devops",
+    title: "DevOps & Cloud",
+    totalDays: 50,
+    icon: "☁️"
+  }
+];
