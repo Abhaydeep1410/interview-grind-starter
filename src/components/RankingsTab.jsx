@@ -4,9 +4,9 @@ import { calcStreaks } from '../utils/streakUtils';
 
 // ── Shared leaderboard row ────────────────────────────────────────────────
 
-function LeaderboardRow({ user, rank, isMe, showStreak = true }) {
+function LeaderboardRow({ user, rank, isMe, showStreak = true, track = 'interview' }) {
   const medals  = ['🥇', '🥈', '🥉'];
-  const total   = totalPossiblePoints();
+  const total   = totalPossiblePoints(track);
   const pct     = Math.round((user.points / total) * 100);
   const hot     = user.streak >= 3;
 
@@ -181,6 +181,7 @@ export default function RankingsTab({
   onJoin,
   onLeave,
   userProgress,     // current user's progress (for streak)
+  track = 'interview',
 }) {
   const [activeTab, setActiveTab]       = useState('global');
   const [showCreate, setShowCreate]     = useState(false);
@@ -231,7 +232,7 @@ export default function RankingsTab({
             <p style={{ color: '#4b5563', fontSize: 13, textAlign: 'center', padding: '40px 0' }}>No users yet.</p>
           )}
           {sortedGlobal.map((u, i) => (
-            <LeaderboardRow key={u.id} user={u} rank={i} isMe={u.id === currentUserId} />
+            <LeaderboardRow key={u.id} user={u} rank={i} isMe={u.id === currentUserId} track={track} />
           ))}
         </div>
       )}
@@ -276,7 +277,7 @@ export default function RankingsTab({
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {sorted.map((u, i) => (
-                  <LeaderboardRow key={u.id} user={u} rank={i} isMe={u.id === currentUserId} showStreak />
+                  <LeaderboardRow key={u.id} user={u} rank={i} isMe={u.id === currentUserId} showStreak track={track} />
                 ))}
               </div>
             )}

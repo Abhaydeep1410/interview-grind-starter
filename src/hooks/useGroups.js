@@ -10,7 +10,7 @@ import { calcStreaks } from '../utils/streakUtils';
 //   groups       — metadata for each group the user is in
 //   groupMembers — { [code]: [ {id, name, points, daysCompleted, streak} ] }
 
-export function useGroups(user) {
+export function useGroups(user, track = 'interview') {
   const [groupIds, setGroupIds]       = useState([]);
   const [groups, setGroups]           = useState([]); // [{code, name, createdBy, members}]
   const [groupMembers, setGroupMembers] = useState({}); // { code: [...users] }
@@ -42,13 +42,24 @@ export function useGroups(user) {
         const membersMap = {};
         await Promise.all(valid.map(async group => {
           const rawUsers = await fetchGroupMembers(group.members || []);
-          membersMap[group.code] = rawUsers.map(u => ({
-            id:            u.id,
-            name:          u.name,
-            points:        calcUserPoints(u.progress),
-            daysCompleted: calcUserDaysCompleted(u.progress),
-            streak:        calcStreaks(u.progress).current,
-          }));
+          membersMap[group.code] = rawUsers.map(u => {
+            // u.progress can be the old flat format ({1: [...], 2: [...]})
+            // or the new {interview: {...}, devops: {...}} format — normalize
+            // before pulling out the currently selected track.
+            const rawProgress = u.progress || {};
+            const normalized = (!rawProgress.interview && !rawProgress.devops)
+              ? { interview: rawProgress, devops: {} }
+              : rawProgress;
+            const trackProgress = normalized[track] || {};
+
+            return {
+              id:            u.id,
+              name:          u.name,
+              points:        calcUserPoints(trackProgress, track),
+              daysCompleted: calcUserDaysCompleted(trackProgress, track),
+              streak:        calcStreaks(trackProgress, track).current,
+            };
+          });
         }));
         setGroupMembers(membersMap);
       } catch (e) {
@@ -58,7 +69,7 @@ export function useGroups(user) {
     }
 
     load();
-  }, [JSON.stringify(groupIds)]);
+  }, [JSON.stringify(groupIds), track]);
 
   // ── Actions ───────────────────────────────────────────────────────────
 

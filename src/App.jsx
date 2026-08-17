@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 
-import { DAYS_MAP, getMonth } from './data';
-import { DEVOPS_DAYS_MAP } from './devopsData';
+import { DAYS_MAP, getMonth, CATEGORY_POINTS } from './data';
+import { DEVOPS_DAYS_MAP, DEVOPS_CATEGORY_POINTS } from './devopsData';
 import { MAINTENANCE_MODE, MONTH_NAMES, TRACKS } from './constants';
 
 import { getTodayDay, calcUserPoints } from './utils/helpers';
@@ -57,7 +57,7 @@ export default function App() {
     getNote,
   } = useNotes(user);
 
-  const allUsers = useLeaderboard(user);
+  const allUsers = useLeaderboard(user, selectedTrack);
 
   const {
     groups,
@@ -66,7 +66,7 @@ export default function App() {
     create: createGroup,
     join: joinGroup,
     leave: leaveGroup,
-  } = useGroups(user);
+  } = useGroups(user, selectedTrack);
 
   const {
     config,
@@ -99,6 +99,10 @@ export default function App() {
   const activeDaysMap = isDevOps
     ? DEVOPS_DAYS_MAP
     : DAYS_MAP;
+
+  const activeCategoryPoints = isDevOps
+    ? DEVOPS_CATEGORY_POINTS
+    : CATEGORY_POINTS;
 
   const totalDays = isDevOps ? 50 : 84;
 useConfetti(progress, totalDays);
@@ -227,7 +231,7 @@ const monthDays = Array.from(
   // Points
   // ───────────────────────────────────────────────────────────────────────────
 
-  const points = calcUserPoints(progress);
+  const points = calcUserPoints(progress, selectedTrack);
 
   // ───────────────────────────────────────────────────────────────────────────
   // Note modal props
@@ -594,11 +598,15 @@ const monthDays = Array.from(
 
             <XPBar points={points} />
 
-            <StatsBar progress={progress} daysMap={activeDaysMap} />
+            <StatsBar progress={progress} daysMap={activeDaysMap} categoryPoints={activeCategoryPoints} />
 
             <HeatmapCalendar
               progress={progress}
               onDayClick={handleHeatmapClick}
+              daysMap={activeDaysMap}
+              categoryPoints={activeCategoryPoints}
+              totalDays={totalDays}
+              track={selectedTrack}
             />
 
             <div
@@ -640,6 +648,7 @@ const monthDays = Array.from(
   progress={progress}
   notes={notes}
   onToggle={handleToggle}
+  categoryPoints={activeCategoryPoints}
   onNoteClick={(d, i) => {
     setPendingNote(null);
     setNotingTask({ day: d, taskIdx: i });
@@ -673,6 +682,7 @@ const monthDays = Array.from(
   progress={progress}
   notes={notes}
   onToggle={handleToggle}
+  categoryPoints={activeCategoryPoints}
   onNoteClick={(d, i) => {
     setPendingNote(null);
     setNotingTask({ day: d, taskIdx: i });
@@ -771,6 +781,7 @@ const monthDays = Array.from(
       progress={progress}
       notes={notes}
       onToggle={handleToggle}
+      categoryPoints={activeCategoryPoints}
       onNoteClick={(day, taskIdx) =>
         setNotingTask({
           day,
@@ -805,6 +816,8 @@ const monthDays = Array.from(
             onLeave={leaveGroup}
 
             userProgress={progress}
+
+            track={selectedTrack}
           />
         )}
 
@@ -829,12 +842,22 @@ const monthDays = Array.from(
 
             <BadgeShelf
               progress={progress}
+
+              track={selectedTrack}
             />
 
             <HeatmapCalendar
               progress={progress}
 
               onDayClick={handleHeatmapClick}
+
+              daysMap={activeDaysMap}
+
+              categoryPoints={activeCategoryPoints}
+
+              totalDays={totalDays}
+
+              track={selectedTrack}
             />
 
           </div>

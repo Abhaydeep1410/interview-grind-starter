@@ -291,7 +291,7 @@ export function useProgress(user, selectedTrack = 'interview') {
 // useLeaderboard
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function useLeaderboard(user) {
+export function useLeaderboard(user, track = 'interview') {
   const [allUsers, setAllUsers] =
     useState([]);
 
@@ -334,18 +334,12 @@ export function useLeaderboard(user) {
 
 
             /*
-             * For now leaderboard uses Interview Prep
-             * progress, preserving the existing behaviour.
-             *
-             * Later we can add:
-             *
-             * Interview
-             * DevOps
-             * Overall
+             * Leaderboard now reflects whichever track is
+             * currently selected, instead of always Interview Prep.
              */
 
-            const interviewProgress =
-              userProgress.interview || {};
+            const trackProgress =
+              userProgress[track] || {};
 
 
             return {
@@ -355,17 +349,20 @@ export function useLeaderboard(user) {
 
               points:
                 calcUserPoints(
-                  interviewProgress
+                  trackProgress,
+                  track
                 ),
 
               daysCompleted:
                 calcUserDaysCompleted(
-                  interviewProgress
+                  trackProgress,
+                  track
                 ),
 
               streak:
                 calcStreaks(
-                  interviewProgress
+                  trackProgress,
+                  track
                 ).current,
             };
           })
@@ -374,7 +371,7 @@ export function useLeaderboard(user) {
     );
 
     return unsub;
-  }, [user]);
+  }, [user, track]);
 
 
   return allUsers;

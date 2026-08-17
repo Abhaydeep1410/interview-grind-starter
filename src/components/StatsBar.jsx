@@ -1,18 +1,16 @@
-import { DAYS_MAP, CATEGORY_COLORS } from '../data';
+import { DAYS_MAP, CATEGORY_COLORS, CATEGORY_POINTS } from '../data';
 import { CAT_ICONS } from '../constants';
-import { calcUserPoints, calcUserDaysCompleted, totalPossiblePoints } from '../utils/helpers';
-import { getDayPoints, CATEGORY_POINTS } from '../data';
 
 // ── StatsBar ──────────────────────────────────────────────────────────────
 
-export default function StatsBar({ progress, daysMap = DAYS_MAP }) {
-  // Compute points using the active track's daysMap
+export default function StatsBar({ progress, daysMap = DAYS_MAP, categoryPoints = CATEGORY_POINTS }) {
+  // Compute points using the active track's daysMap + category weights
   function calcPoints(prog) {
     let pts = 0;
     for (const [dayStr, tasks] of Object.entries(prog || {})) {
       const dayTasks = daysMap[parseInt(dayStr)] || [];
       tasks.forEach((done, i) => {
-        if (done && dayTasks[i]) pts += CATEGORY_POINTS[dayTasks[i].category] || 1;
+        if (done && dayTasks[i]) pts += categoryPoints[dayTasks[i].category] || 1;
       });
     }
     return pts;
@@ -29,7 +27,10 @@ export default function StatsBar({ progress, daysMap = DAYS_MAP }) {
   }
 
   function calcTotal() {
-    return Object.values(daysMap).reduce((s, tasks) => s + getDayPoints(tasks), 0);
+    return Object.values(daysMap).reduce(
+      (s, tasks) => s + tasks.reduce((sum, t) => sum + (categoryPoints[t.category] || 1), 0),
+      0
+    );
   }
 
   const pts = calcPoints(progress);

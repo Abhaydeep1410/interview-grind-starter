@@ -1,26 +1,48 @@
-import { DAYS_MAP, CATEGORY_POINTS, getDayPoints } from '../data';
+import { DAYS_MAP, CATEGORY_POINTS } from '../data';
+import { DEVOPS_DAYS_MAP, DEVOPS_CATEGORY_POINTS } from '../devopsData';
+
+// ── Track-aware lookups ──────────────────────────────────────────────────
+// Every points/days calculation needs to know which track's map + category
+// weights to use. Default is 'interview' so existing call sites that don't
+// pass a track keep working exactly as before.
+
+export function getDaysMapForTrack(track) {
+  return track === 'devops' ? DEVOPS_DAYS_MAP : DAYS_MAP;
+}
+
+export function getCategoryPointsForTrack(track) {
+  return track === 'devops' ? DEVOPS_CATEGORY_POINTS : CATEGORY_POINTS;
+}
 
 // ── Points & progress calculations ────────────────────────────────────────
 
-export function totalPossiblePoints() {
-  return Object.values(DAYS_MAP).reduce((s, tasks) => s + getDayPoints(tasks), 0);
+export function totalPossiblePoints(track = 'interview') {
+  const daysMap = getDaysMapForTrack(track);
+  const catPoints = getCategoryPointsForTrack(track);
+  return Object.values(daysMap).reduce(
+    (s, tasks) => s + tasks.reduce((sum, t) => sum + (catPoints[t.category] || 1), 0),
+    0
+  );
 }
 
-export function calcUserPoints(progress) {
+export function calcUserPoints(progress, track = 'interview') {
+  const daysMap = getDaysMapForTrack(track);
+  const catPoints = getCategoryPointsForTrack(track);
   let pts = 0;
   for (const [dayStr, tasks] of Object.entries(progress || {})) {
-    const dayTasks = DAYS_MAP[parseInt(dayStr)] || [];
+    const dayTasks = daysMap[parseInt(dayStr)] || [];
     tasks.forEach((done, i) => {
-      if (done && dayTasks[i]) pts += CATEGORY_POINTS[dayTasks[i].category] || 1;
+      if (done && dayTasks[i]) pts += catPoints[dayTasks[i].category] || 1;
     });
   }
   return pts;
 }
 
-export function calcUserDaysCompleted(progress) {
+export function calcUserDaysCompleted(progress, track = 'interview') {
+  const daysMap = getDaysMapForTrack(track);
   let days = 0;
   for (const [dayStr, tasks] of Object.entries(progress || {})) {
-    const dayTasks = DAYS_MAP[parseInt(dayStr)] || [];
+    const dayTasks = daysMap[parseInt(dayStr)] || [];
     const allDone =
       dayTasks.length > 0 && tasks.every((d, i) => (i < dayTasks.length ? d : true));
     if (allDone) days++;

@@ -1,14 +1,14 @@
 import { BADGES, getEarnedBadges } from '../utils/xpUtils';
-import { calcUserPoints, calcUserDaysCompleted } from '../utils/helpers';
+import { calcUserPoints, calcUserDaysCompleted, getDaysMapForTrack } from '../utils/helpers';
 import { calcStreaks } from '../utils/streakUtils';
-import { DAYS_MAP, CATEGORY_POINTS } from '../data';
 
 // ── BadgeShelf ────────────────────────────────────────────────────────────
 
-function buildCatCounts(progress) {
+function buildCatCounts(progress, track) {
+  const daysMap = getDaysMapForTrack(track);
   const counts = {};
   for (const [dayStr, tasks] of Object.entries(progress || {})) {
-    const dayTasks = DAYS_MAP[parseInt(dayStr)] || [];
+    const dayTasks = daysMap[parseInt(dayStr)] || [];
     tasks.forEach((done, i) => {
       if (done && dayTasks[i]) {
         const cat = dayTasks[i].category;
@@ -19,11 +19,11 @@ function buildCatCounts(progress) {
   return counts;
 }
 
-export default function BadgeShelf({ progress }) {
-  const points        = calcUserPoints(progress);
-  const daysCompleted = calcUserDaysCompleted(progress);
-  const { current: streak } = calcStreaks(progress);
-  const catCounts     = buildCatCounts(progress);
+export default function BadgeShelf({ progress, track = 'interview' }) {
+  const points        = calcUserPoints(progress, track);
+  const daysCompleted = calcUserDaysCompleted(progress, track);
+  const { current: streak } = calcStreaks(progress, track);
+  const catCounts     = buildCatCounts(progress, track);
   const earned        = new Set(getEarnedBadges({ points, daysCompleted, streak, catCounts }));
 
   return (

@@ -1,7 +1,6 @@
 import {
   CATEGORY_COLORS,
   CATEGORY_POINTS,
-  getDayPoints,
 } from '../data';
 
 import { CAT_ICONS } from '../constants';
@@ -15,6 +14,7 @@ export default function DayView({
   notes = {},
   onToggle,
   onNoteClick,
+  categoryPoints = CATEGORY_POINTS,
 }) {
   const dayProgress = progress[day] || [];
 
@@ -22,11 +22,14 @@ export default function DayView({
 
   const total = tasks.length;
 
-  const dayPts = getDayPoints(tasks);
+  const dayPts = tasks.reduce(
+    (sum, task) => sum + (categoryPoints[task.category] || 1),
+    0
+  );
 
   const earnedPts = tasks.reduce(
     (sum, task, i) =>
-      sum + (dayProgress[i] ? (CATEGORY_POINTS[task.category] || 0) : 0),
+      sum + (dayProgress[i] ? (categoryPoints[task.category] || 1) : 0),
     0
   );
 
@@ -167,8 +170,8 @@ export default function DayView({
           const categoryColor =
             CATEGORY_COLORS[task.category] || '#6b7280';
 
-          const categoryPoints =
-            CATEGORY_POINTS[task.category] || 0;
+          const categoryPoints_task =
+            categoryPoints[task.category] || 1;
 
           return (
             <div
@@ -282,7 +285,7 @@ export default function DayView({
                       fontSize: 10,
                     }}
                   >
-                    +{categoryPoints}pt
+                    +{categoryPoints_task}pt
                   </span>
 
                 </div>
