@@ -56,6 +56,24 @@ export function getTodayDay() {
   return Math.max(1, Math.min(84, diff));
 }
 
+/**
+ * Self-paced "today" for tracks that don't run on a shared calendar
+ * (e.g. DevOps). Returns the first day that isn't fully completed yet,
+ * so it advances as the user checks off tasks instead of staying stuck
+ * on Day 1 or jumping straight to the last day.
+ */
+export function getSelfPacedTodayDay(progress, track, totalDays) {
+  const daysMap = getDaysMapForTrack(track);
+  for (let d = 1; d <= totalDays; d++) {
+    const tasks = daysMap[d] || [];
+    if (tasks.length === 0) continue;
+    const dayProg = progress[d] || [];
+    const allDone = tasks.every((_, i) => !!dayProg[i]);
+    if (!allDone) return d;
+  }
+  return totalDays; // everything completed
+}
+
 // ── Auth helpers ──────────────────────────────────────────────────────────
 
 export async function hashPassword(password) {

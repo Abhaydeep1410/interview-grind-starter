@@ -4,7 +4,7 @@ import { DAYS_MAP, getMonth, CATEGORY_POINTS } from './data';
 import { DEVOPS_DAYS_MAP, DEVOPS_CATEGORY_POINTS } from './devopsData';
 import { MAINTENANCE_MODE, MONTH_NAMES, TRACKS } from './constants';
 
-import { getTodayDay, calcUserPoints } from './utils/helpers';
+import { getTodayDay, getSelfPacedTodayDay, calcUserPoints } from './utils/helpers';
 
 import { useAuth } from './hooks/useAuth';
 import { useProgress, useLeaderboard } from './hooks/useProgress';
@@ -111,16 +111,14 @@ useConfetti(progress, totalDays);
   // ───────────────────────────────────────────────────────────────────────────
 
   /*
-   * For now:
+   * Interview Prep runs on a shared calendar (fixed campaign start
+   * date), so getTodayDay() is calendar-anchored.
    *
-   * Interview Prep → uses the existing getTodayDay()
-   * DevOps          → starts at Day 1
-   *
-   * Later we will make DevOps automatically continue from the
-   * user's completed progress.
+   * DevOps has no shared calendar start — it's self-paced, so "today"
+   * is the first day the user hasn't fully completed yet.
    */
   const todayDay = isDevOps
-    ? 1
+    ? getSelfPacedTodayDay(progress, 'devops', totalDays)
     : getTodayDay();
 
   // ───────────────────────────────────────────────────────────────────────────
